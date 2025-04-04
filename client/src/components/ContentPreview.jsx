@@ -1,6 +1,7 @@
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { SubjectIcons } from '../lib/icons';
+import ContentVideo from './ContentVideo';
 
 export default function ContentPreview({ content }) {
   const { toast } = useToast();
@@ -142,6 +143,9 @@ export default function ContentPreview({ content }) {
         </div>
         
         <div className="border-t border-gray-200 pt-3">
+          {/* Video component */}
+          <ContentVideo content={content} />
+
           <h4 className="text-sm font-medium text-gray-700 mb-2">Script Overview</h4>
           <div className="bg-white border border-gray-200 rounded-md p-3 mb-3 text-sm text-gray-600 max-h-64 overflow-y-auto">
             {!content.scriptContent ? (

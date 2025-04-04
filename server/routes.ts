@@ -3,11 +3,21 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContentSchema } from "@shared/schema";
 import { ZodError } from "zod";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+// Get current directory since __dirname is not available in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Import the AI modules from JS files
 // @ts-ignore
 import { generateEducationalContent as generateWithGroq } from "./groq";
 // @ts-ignore
 import { generateEducationalContent as generateWithGemini } from "./gemini";
+// @ts-ignore
+import { generateVideo, getVideoUrl } from "./videoGenerator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize API routes
@@ -138,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contentFormat,
         duration,
         specificInstructions: specificInstructions || "",
-        status: "completed",
+        status: "processing", // Set to processing while video is being generated
         scriptContent: generatedContent.scriptContent,
         learningObjectives: generatedContent.learningObjectives,
         materials: generatedContent.materials,
@@ -147,9 +157,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aiModel: aiModel.toLowerCase() // Store which AI model was used
       };
       
+      // Create content entry first
       const newContent = await storage.createContent(contentData);
       
+      // Send immediate response with the created content
       res.status(201).json(newContent);
+      
+      try {
+        console.log("Starting video generation process...");
+        
+        // Start generating video in the background
+        // Generate video from the content (this may take some time)
+        const videoPath = await generateVideo(newContent);
+        const videoUrl = getVideoUrl(videoPath);
+        
+        console.log(`Video generated successfully at: ${videoPath}`);
+        console.log(`Video URL: ${videoUrl}`);
+        
+        // Update the content with the video URL and status
+        await storage.updateContent(newContent.id, {
+          status: "completed",
+          videoUrl: videoUrl
+        });
+        
+        console.log(`Content ${newContent.id} updated with video URL`);
+      } catch (videoError: any) {
+        console.error("Error generating video:", videoError);
+        
+        // Update content status to reflect the error
+        await storage.updateContent(newContent.id, {
+          status: "error",
+          errorMessage: videoError.message || "Unknown error during video generation"
+        });
+      }
     } catch (error: any) {
       console.error(`Error generating content: ${error.message}`);
       res.status(500).json({ 
@@ -159,8 +199,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Add a route to serve video files
+  apiRouter.get("/videos/:filename", (req: Request, res: Response) => {
+    const filename = req.params.filename;
+    const videoPath = path.join(__dirname, '..', 'public', 'videos', filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(videoPath)) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+    
+    // Set content type and serve the file
+    res.setHeader('Content-Type', 'video/mp4');
+    res.sendFile(videoPath);
+  });
+  
+  // Route to generate video for existing content
+  apiRouter.post("/contents/:id/generate-video", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const content = await storage.getContent(id);
+      
+      if (!content) {
+        return res.status(404).json({ message: "Content not found" });
+      }
+      
+      // Update status to processing
+      await storage.updateContent(id, { status: "processing" });
+      
+      // Send immediate response
+      res.json({ 
+        message: "Video generation started", 
+        contentId: id 
+      });
+      
+      try {
+        // Generate video
+        const videoPath = await generateVideo(content);
+        const videoUrl = getVideoUrl(videoPath);
+        
+        // Update content with video URL
+        await storage.updateContent(id, {
+          status: "completed",
+          videoUrl: videoUrl
+        });
+      } catch (error: any) {
+        console.error(`Error generating video for content ${id}:`, error);
+        await storage.updateContent(id, {
+          status: "error",
+          errorMessage: error.message || "Unknown error during video generation"
+        });
+      }
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Failed to generate video", 
+        error: error.message 
+      });
+    }
+  });
+  
   // Mount the API router
   app.use("/api", apiRouter);
+  
+  // Serve static video files
+  app.use('/videos', express.static(path.join(__dirname, '..', 'public', 'videos')));
 
   const httpServer = createServer(app);
   return httpServer;
