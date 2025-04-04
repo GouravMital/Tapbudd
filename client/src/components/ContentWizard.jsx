@@ -41,11 +41,19 @@ export default function ContentWizard() {
   };
 
   const isFormValid = () => {
-    return formData.subject && formData.title && formData.ageGroup;
+    console.log("Form validation check:", {
+      subject: formData.subject,
+      title: formData.title,
+      ageGroup: formData.ageGroup,
+      isValid: !!(formData.subject && formData.title && formData.ageGroup)
+    });
+    return !!(formData.subject && formData.title && formData.ageGroup);
   };
 
   const handleGenerateContent = async () => {
+    console.log("Generate Content button clicked");
     if (!isFormValid()) {
+      console.log("Form is not valid");
       toast({
         title: "Incomplete form",
         description: "Please fill in all required fields",
@@ -54,9 +62,12 @@ export default function ContentWizard() {
       return;
     }
 
+    console.log("Proceeding with content generation", formData);
     setIsGenerating(true);
     try {
+      console.log("Making API request to /api/generate-content");
       const response = await apiRequest('POST', '/api/generate-content', formData);
+      console.log("API Response received:", response);
       const newContent = await response.json();
       
       // Invalidate queries to update the UI
@@ -96,8 +107,24 @@ export default function ContentWizard() {
     });
   };
 
+  const handleTestButtonClick = () => {
+    console.log("Test button clicked");
+    toast({
+      title: "Test Button Works",
+      description: "This button click is working correctly."
+    });
+  };
+
   return (
     <div className="p-5">
+      <button 
+        type="button" 
+        onClick={handleTestButtonClick}
+        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded-md"
+      >
+        Test Button
+      </button>
+
       <SubjectSelector 
         selectedSubject={formData.subject} 
         onSelectSubject={handleSubjectSelect} 
@@ -232,7 +259,10 @@ export default function ContentWizard() {
         </button>
         <button 
           type="button" 
-          onClick={handleGenerateContent}
+          onClick={() => {
+            console.log("Button clicked directly");
+            handleGenerateContent();
+          }}
           disabled={isGenerating || !isFormValid()}
           className={`px-4 py-2 bg-primary text-white rounded-md ${
             isGenerating || !isFormValid() ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-dark'
