@@ -3,9 +3,11 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContentSchema } from "@shared/schema";
 import { ZodError } from "zod";
-// Import the groq module from the JS file
+// Import the AI modules from JS files
 // @ts-ignore
-import { generateEducationalContent } from "./groq.js";
+import { generateEducationalContent as generateWithGroq } from "./groq";
+// @ts-ignore
+import { generateEducationalContent as generateWithGemini } from "./gemini";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize API routes
@@ -86,17 +88,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Generate content with GROQ AI
+  // Generate content with AI (GROQ or Gemini)
   apiRouter.post("/generate-content", async (req: Request, res: Response) => {
     try {
-      const { subject, title, ageGroup, difficultyLevel, contentFormat, duration, specificInstructions } = req.body;
+      const { 
+        subject, 
+        title, 
+        ageGroup, 
+        difficultyLevel, 
+        contentFormat, 
+        duration, 
+        specificInstructions,
+        aiModel = 'groq' // Default to GROQ if not specified
+      } = req.body;
       
       if (!subject || !title || !ageGroup || !difficultyLevel || !contentFormat || !duration) {
         return res.status(400).json({ message: "Missing required fields" });
       }
       
-      // Generate content using GROQ
-      const generatedContent = await generateEducationalContent({
+      // Prepare content parameters
+      const contentParams = {
         subject,
         title,
         ageGroup,
@@ -104,7 +115,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contentFormat,
         duration,
         specificInstructions: specificInstructions || ""
-      });
+      };
+      
+      // Generate content using the selected AI model
+      let generatedContent;
+      
+      if (aiModel.toLowerCase() === 'gemini') {
+        console.log('Generating content with Google Gemini...');
+        generatedContent = await generateWithGemini(contentParams);
+      } else {
+        // Default to GROQ
+        console.log('Generating content with GROQ...');
+        generatedContent = await generateWithGroq(contentParams);
+      }
       
       // Create the content in storage
       const contentData = {
@@ -120,14 +143,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         learningObjectives: generatedContent.learningObjectives,
         materials: generatedContent.materials,
         visualReferences: generatedContent.visualReferences,
-        userId: 1  // Default user for demo
+        userId: 1,  // Default user for demo
+        aiModel: aiModel.toLowerCase() // Store which AI model was used
       };
       
       const newContent = await storage.createContent(contentData);
       
       res.status(201).json(newContent);
     } catch (error: any) {
-      console.error('Error generating content with GROQ:', error);
+      console.error(`Error generating content: ${error.message}`);
       res.status(500).json({ 
         message: "Failed to generate content", 
         error: error.message 

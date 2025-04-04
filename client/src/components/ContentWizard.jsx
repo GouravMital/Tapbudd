@@ -14,7 +14,8 @@ export default function ContentWizard() {
     difficultyLevel: 'beginner',
     contentFormat: 'tutorial',
     duration: '5-8',
-    specificInstructions: ''
+    specificInstructions: '',
+    aiModel: 'groq' // Default to GROQ
   });
 
   const handleSubjectSelect = (subject) => {
@@ -86,7 +87,8 @@ export default function ContentWizard() {
         difficultyLevel: 'beginner',
         contentFormat: 'tutorial',
         duration: '5-8',
-        specificInstructions: ''
+        specificInstructions: '',
+        aiModel: formData.aiModel // Keep the selected AI model
       });
       
     } catch (error) {
@@ -132,6 +134,40 @@ export default function ContentWizard() {
 
       <div className="mb-6">
         <h3 className="text-md font-medium text-gray-700 mb-3">2. Set Content Parameters</h3>
+        
+        {/* AI Model Selection */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">AI Model</label>
+          <div className="flex items-center space-x-4">
+            <label className="inline-flex items-center">
+              <input 
+                type="radio" 
+                name="aiModel" 
+                value="groq" 
+                checked={formData.aiModel === 'groq'} 
+                onChange={handleRadioChange}
+                className="form-radio h-4 w-4 text-blue-600" 
+              />
+              <span className="ml-2 text-sm text-gray-700 flex items-center">
+                <i className="ri-robot-line mr-1 text-blue-500"></i> GROQ
+              </span>
+            </label>
+            <label className="inline-flex items-center">
+              <input 
+                type="radio" 
+                name="aiModel" 
+                value="gemini" 
+                checked={formData.aiModel === 'gemini'} 
+                onChange={handleRadioChange}
+                className="form-radio h-4 w-4 text-green-600" 
+              />
+              <span className="ml-2 text-sm text-gray-700 flex items-center">
+                <i className="ri-google-line mr-1 text-green-500"></i> Google Gemini
+              </span>
+            </label>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <div className="mb-4">
