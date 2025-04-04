@@ -3,9 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContentSchema } from "@shared/schema";
 import { ZodError } from "zod";
-// Import the groq module from the JS file
+// Import the groq module - we need to use require since it's a JS file
 // @ts-ignore
-import { generateEducationalContent } from "./groq.js";
+const { generateEducationalContent } = require("./groq");
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize API routes

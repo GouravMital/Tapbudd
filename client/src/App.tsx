@@ -6,9 +6,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "./pages/Dashboard";
 import GeneratedContent from "./pages/GeneratedContent";
 import Library from "./pages/Library";
-import Sidebar from "./components/Sidebar";
-import MobileSidebarToggle from "./components/MobileSidebarToggle";
-import { useSidebar } from "./contexts/SidebarContext";
+import SidebarWithContext from "./components/SidebarWithContext";
 
 function Router() {
   return (
@@ -22,16 +20,13 @@ function Router() {
 }
 
 function App() {
-  const { isOpen } = useSidebar();
-  
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar />
+        <SidebarWithContext />
         <main className="flex-1 overflow-y-auto bg-gray-50 pb-16">
           <Router />
         </main>
-        <MobileSidebarToggle />
       </div>
       <Toaster />
     </QueryClientProvider>
