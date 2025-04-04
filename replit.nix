@@ -1,5 +1,7 @@
 {pkgs}: {
   deps = [
+    pkgs.gtk3
+    pkgs.glib
     pkgs.librsvg
     pkgs.giflib
     pkgs.libjpeg

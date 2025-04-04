@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect x="0" y="0" width="1280" height="720" fill="#1a1a2e"/>
+  
+  <!-- Title Background -->
+  <rect x="40" y="40" width="1200" height="80" rx="8" fill="rgba(255,255,255,0.1)"/>
+  
+  <!-- Main Content Area -->
+  <rect x="40" y="150" width="1200" height="470" rx="16" fill="rgba(255,255,255,0.1)"/>
+  
+  <!-- Play Button -->
+  <circle cx="640" cy="360" r="80" fill="rgba(0,0,0,0.6)"/>
+  <path d="M620 320 L680 360 L620 400 Z" fill="white"/>
+  
+  <!-- TAP Branding -->
+  <text x="640" y="680" font-family="Arial" font-size="24" text-anchor="middle" fill="rgba(255,255,255,0.6)">
+    The Apprentice Project • Educational Content
+  </text>
+  
+  <!-- Title Placeholder -->
+  <text x="640" y="90" font-family="Arial" font-size="36" text-anchor="middle" fill="white">
+    Educational Video Preview
+  </text>
+</svg>

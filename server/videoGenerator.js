@@ -1,13 +1,12 @@
 /**
  * Video Generator Service for TAP Educational Content
- * Converts AI-generated educational content into MP4 video files
+ * Converts AI-generated educational content into MP4 video files using canvas
  */
 
 import fs from 'fs';
 import path from 'path';
-import { createCanvas, loadImage, registerFont } from 'canvas';
+import { createCanvas, registerFont } from 'canvas';
 import ffmpeg from 'fluent-ffmpeg';
-import nodeHtmlToImage from 'node-html-to-image';
 import { fileURLToPath } from 'url';
 
 // Get current directory for file paths
@@ -25,8 +24,12 @@ if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
+// Canvas dimensions
+const WIDTH = 1280;
+const HEIGHT = 720;
+
 /**
- * Create a video frame from content
+ * Create a video frame from content using canvas
  * @param {string} text - Text to display on frame
  * @param {number} frameNum - Frame number
  * @param {string} title - Content title
@@ -48,80 +51,94 @@ async function createFrame(text, frameNum, title, subject) {
   
   const color = subjectColors[subject] || subjectColors.default;
   
-  // Create HTML content for the frame
-  const html = `
-    <html>
-    <head>
-      <style>
-        body {
-          width: 1280px;
-          height: 720px;
-          background-color: #1a1a2e;
-          font-family: 'Arial', sans-serif;
-          display: flex;
-          flex-direction: column;
-          padding: 40px;
-          color: white;
-          box-sizing: border-box;
-        }
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 30px;
-        }
-        .title {
-          font-size: 36px;
-          font-weight: bold;
-          color: white;
-        }
-        .subject {
-          font-size: 18px;
-          padding: 8px 16px;
-          border-radius: 20px;
-          background-color: ${color};
-          color: white;
-        }
-        .content {
-          flex: 1;
-          background-color: rgba(255, 255, 255, 0.1);
-          border-radius: 16px;
-          padding: 30px;
-          font-size: 24px;
-          line-height: 1.5;
-          overflow: hidden;
-        }
-        .footer {
-          margin-top: 20px;
-          text-align: right;
-          font-size: 16px;
-          color: rgba(255, 255, 255, 0.6);
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <div class="title">${title}</div>
-        <div class="subject">${subject}</div>
-      </div>
-      <div class="content">${text}</div>
-      <div class="footer">The Apprentice Project • Educational Content</div>
-    </body>
-    </html>
-  `;
+  // Create canvas
+  const canvas = createCanvas(WIDTH, HEIGHT);
+  const ctx = canvas.getContext('2d');
   
-  // Generate image from HTML
-  await nodeHtmlToImage({
-    output: imagePath,
-    html: html,
-    transparent: false,
-    puppeteerArgs: {
-      defaultViewport: {
-        width: 1280,
-        height: 720
+  // Draw background
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  
+  // Draw header
+  ctx.font = 'bold 36px Arial';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(title, 40, 80);
+  
+  // Draw subject badge
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  // Use arc for rounded rectangles since roundRect might not be available in all canvas implementations
+  const drawRoundedRect = (x, y, width, height, radius) => {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.arcTo(x + width, y, x + width, y + radius, radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+    ctx.lineTo(x + radius, y + height);
+    ctx.arcTo(x, y + height, x, y + height - radius, radius);
+    ctx.lineTo(x, y + radius);
+    ctx.arcTo(x, y, x + radius, y, radius);
+    ctx.closePath();
+  };
+  
+  drawRoundedRect(WIDTH - 200, 50, 160, 40, 20);
+  ctx.fill();
+  
+  ctx.font = '18px Arial';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.fillText(subject, WIDTH - 120, 75);
+  ctx.textAlign = 'left';
+  
+  // Draw content background
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  drawRoundedRect(40, 120, WIDTH - 80, HEIGHT - 200, 16);
+  ctx.fill();
+  
+  // Draw text content
+  ctx.font = '24px Arial';
+  ctx.fillStyle = '#FFFFFF';
+  
+  // Simple text wrapping
+  const words = text.replace(/<[^>]*>?/gm, '').split(' ');
+  let line = '';
+  let y = 160;
+  const lineHeight = 34;
+  const maxWidth = WIDTH - 160;
+  
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + ' ';
+    const metrics = ctx.measureText(testLine);
+    const testWidth = metrics.width;
+    
+    if (testWidth > maxWidth && n > 0) {
+      ctx.fillText(line, 70, y);
+      line = words[n] + ' ';
+      y += lineHeight;
+      
+      // Check if we're going off the content area
+      if (y > HEIGHT - 100) {
+        ctx.fillText('...', 70, y);
+        break;
       }
+    } else {
+      line = testLine;
     }
-  });
+  }
+  if (line != '') {
+    ctx.fillText(line, 70, y);
+  }
+  
+  // Draw footer
+  ctx.font = '16px Arial';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.textAlign = 'right';
+  ctx.fillText('The Apprentice Project • Educational Content', WIDTH - 40, HEIGHT - 40);
+  
+  // Save image
+  const buffer = canvas.toBuffer('image/png');
+  fs.writeFileSync(imagePath, buffer);
   
   return imagePath;
 }
@@ -206,36 +223,69 @@ export async function generateVideo(content) {
     console.log("Combining frames into video...");
     
     return new Promise((resolve, reject) => {
-      let command = ffmpeg();
-      
-      // Add each frame to the video
-      frameFiles.forEach(frame => {
-        command = command.addInput(frame.path)
-          .loop(frame.duration); // Duration in seconds
-      });
-      
-      command
-        .on('start', () => {
-          console.log('Starting FFmpeg process');
-        })
-        .on('progress', (progress) => {
-          console.log(`Processing: ${progress.percent}% done`);
-        })
-        .on('end', () => {
-          console.log('Video created successfully');
-          
-          // Clean up temporary files
-          frameFiles.forEach(frame => {
-            fs.unlinkSync(frame.path);
-          });
-          
-          resolve(outputPath);
-        })
-        .on('error', (err) => {
-          console.error('Error creating video:', err);
-          reject(err);
-        })
-        .mergeToFile(outputPath, TEMP_DIR);
+      try {
+        // Create a concatenation file for ffmpeg
+        const concatFilePath = path.join(TEMP_DIR, 'concat.txt');
+        let concatContent = '';
+        
+        // Create content for concat file
+        frameFiles.forEach(frame => {
+          // For each frame, we need to specify the duration it should be shown
+          for (let i = 0; i < frame.duration; i++) {
+            concatContent += `file '${frame.path}'\nduration 1\n`;
+          }
+        });
+        
+        // Add the last file reference (required by ffmpeg concat)
+        if (frameFiles.length > 0) {
+          concatContent += `file '${frameFiles[frameFiles.length - 1].path}'`;
+        }
+        
+        // Write the concat file
+        fs.writeFileSync(concatFilePath, concatContent);
+        
+        console.log('Starting FFmpeg process');
+        
+        // Create the video with ffmpeg
+        ffmpeg()
+          .input(concatFilePath)
+          .inputFormat('concat')
+          .inputOptions(['-safe 0'])
+          .videoCodec('libx264')
+          .outputOptions(['-pix_fmt yuv420p']) // Required for compatibility
+          .output(outputPath)
+          .on('progress', (progress) => {
+            console.log(`Processing: ${progress.percent ? progress.percent.toFixed(1) : 0}% done`);
+          })
+          .on('end', () => {
+            console.log('Video created successfully');
+            
+            // Clean up temporary files
+            frameFiles.forEach(frame => {
+              try {
+                fs.unlinkSync(frame.path);
+              } catch (err) {
+                console.log(`Could not delete frame: ${err.message}`);
+              }
+            });
+            
+            try {
+              fs.unlinkSync(concatFilePath);
+            } catch (err) {
+              console.log(`Could not delete concat file: ${err.message}`);
+            }
+            
+            resolve(outputPath);
+          })
+          .on('error', (err) => {
+            console.error('Error creating video:', err);
+            reject(err);
+          })
+          .run();
+      } catch (err) {
+        console.error('Error in ffmpeg setup:', err);
+        reject(err);
+      }
     });
   } catch (error) {
     console.error("Error generating video:", error);
