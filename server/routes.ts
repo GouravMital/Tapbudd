@@ -99,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contentFormat, 
         duration, 
         specificInstructions,
-        aiModel = 'groq' // Default to GROQ if not specified
+        aiModel = 'gemini' // Default to Gemini if not specified
       } = req.body;
       
       if (!subject || !title || !ageGroup || !difficultyLevel || !contentFormat || !duration) {

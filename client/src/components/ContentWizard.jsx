@@ -15,7 +15,7 @@ export default function ContentWizard() {
     contentFormat: 'tutorial',
     duration: '5-8',
     specificInstructions: '',
-    aiModel: 'groq' // Default to GROQ
+    aiModel: 'gemini' // Default to Gemini
   });
 
   const handleSubjectSelect = (subject) => {
