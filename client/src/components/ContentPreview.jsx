@@ -116,8 +116,34 @@ export default function ContentPreview({ content }) {
             {subjectIcon.icon}
           </div>
           <div className="ml-3">
-            <h3 className="font-medium text-gray-800">{subjectIcon.name}: {content.title}</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
+              <h3 className="font-medium text-gray-800">{subjectIcon.name}: {content.title}</h3>
+              {content.status && (
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${
+                  content.status === 'completed' 
+                    ? 'bg-green-100 text-green-800' 
+                    : content.status === 'processing'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : content.status === 'error'
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {content.status === 'processing' && (
+                    <><i className="ri-loader-4-line mr-1 animate-spin"></i>Processing</>
+                  )}
+                  {content.status === 'completed' && (
+                    <><i className="ri-check-line mr-1"></i>Completed</>
+                  )}
+                  {content.status === 'error' && (
+                    <><i className="ri-error-warning-line mr-1"></i>Error</>
+                  )}
+                  {!['processing', 'completed', 'error'].includes(content.status) && 
+                    content.status.charAt(0).toUpperCase() + content.status.slice(1)
+                  }
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="text-xs text-gray-500">
                 Age Group: {content.ageGroup} • Difficulty: {content.difficultyLevel} • Duration: {content.duration}
               </p>

@@ -199,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Add a route to serve video files
+  // Add a route to serve video files with range support and caching
   apiRouter.get("/videos/:filename", (req: Request, res: Response) => {
     const filename = req.params.filename;
     const videoPath = path.join(__dirname, '..', 'public', 'videos', filename);
@@ -209,9 +209,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Video not found" });
     }
     
-    // Set content type and serve the file
+    // Set cache headers
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours caching
     res.setHeader('Content-Type', 'video/mp4');
-    res.sendFile(videoPath);
+    res.setHeader('Accept-Ranges', 'bytes');
+    
+    // Get file stats
+    const stat = fs.statSync(videoPath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+    
+    // Support for range requests (important for video seeking)
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      
+      console.log(`Serving video range request: ${start}-${end}/${fileSize}`);
+      
+      const file = fs.createReadStream(videoPath, { start, end });
+      
+      res.status(206); // Partial Content
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+      res.setHeader('Content-Length', chunksize);
+      
+      file.pipe(res);
+    } else {
+      // Send the full file if no range is requested
+      console.log(`Serving full video file: ${filename}, size: ${fileSize} bytes`);
+      
+      res.setHeader('Content-Length', fileSize);
+      fs.createReadStream(videoPath).pipe(res);
+    }
   });
   
   // Route to generate video for existing content
