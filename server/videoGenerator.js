@@ -806,9 +806,10 @@ export async function generateVideo(content) {
             '-preset medium', // Balance between quality and encoding speed
             '-crf 22', // Constant Rate Factor - lower is better quality (18-28 is good range)
             '-movflags +faststart', // Allows video to start playing before fully downloaded
-            '-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:-1:-1:color=black', // Ensure consistent dimensions
-            '-metadata title="TAP Educational Content"'
+            '-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:-1:-1:color=black' // Ensure consistent dimensions
           ])
+          // Adding metadata as a separate option
+          .addOutputOption('-metadata:s:v', 'title=TAP Educational Content')
           .output(outputPath)
           .on('progress', (progress) => {
             console.log(`Processing: ${progress.percent ? progress.percent.toFixed(1) : 0}% done`);
