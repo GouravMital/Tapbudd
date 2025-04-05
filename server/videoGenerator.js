@@ -100,8 +100,12 @@ async function createFrame(text, frameNum, title, subject) {
   ctx.font = '24px Arial';
   ctx.fillStyle = '#FFFFFF';
   
+  // Ensure text is a string and handle HTML safely
+  const safeText = typeof text === 'string' ? text : String(text);
+  const cleanText = safeText.replace(/<[^>]*>?/gm, '');
+  
   // Simple text wrapping
-  const words = text.replace(/<[^>]*>?/gm, '').split(' ');
+  const words = cleanText.split(' ');
   let line = '';
   let y = 160;
   const lineHeight = 34;
@@ -167,28 +171,66 @@ export async function generateVideo(content) {
     // Extract script content for video frames
     let frames = [];
     
-    // Handle different script content formats
-    if (scriptContent.opening && scriptContent.mainContent && scriptContent.conclusion) {
-      // Format 1: Opening, main content, conclusion
-      frames.push({ text: scriptContent.opening, duration: 5 });
-      
-      if (Array.isArray(scriptContent.mainContent)) {
-        scriptContent.mainContent.forEach(section => {
-          frames.push({ 
-            text: `<strong>${section.sectionTitle}</strong><br/><br/>${section.script}`, 
-            duration: 8 
-          });
-          
-          if (section.interactiveElement) {
-            frames.push({ 
-              text: `<strong>Interactive Element:</strong><br/><br/>${section.interactiveElement}`, 
-              duration: 4 
-            });
-          }
-        });
+    // Safely extract text from potentially complex objects
+    const safeGetText = (obj) => {
+      if (typeof obj === 'string') return obj;
+      if (obj === null || obj === undefined) return '';
+      if (typeof obj === 'object') {
+        // For objects with a text or script property, prefer those
+        if (obj.text) return typeof obj.text === 'string' ? obj.text : JSON.stringify(obj.text);
+        if (obj.script) return typeof obj.script === 'string' ? obj.script : JSON.stringify(obj.script);
+        // Otherwise stringify the whole object
+        return JSON.stringify(obj, null, 2);
       }
-      
-      frames.push({ text: scriptContent.conclusion, duration: 5 });
+      return String(obj); // Convert any other type to string
+    };
+    
+    // Handle different script content formats
+    if (scriptContent && typeof scriptContent === 'object') {
+      // Check if it has opening, mainContent, conclusion structure
+      if (scriptContent.opening || scriptContent.mainContent || scriptContent.conclusion) {
+        // Format 1: Opening, main content, conclusion
+        if (scriptContent.opening) {
+          frames.push({ text: safeGetText(scriptContent.opening), duration: 5 });
+        }
+        
+        if (scriptContent.mainContent) {
+          if (Array.isArray(scriptContent.mainContent)) {
+            scriptContent.mainContent.forEach(section => {
+              // If section is an object with expected properties
+              if (section && typeof section === 'object') {
+                const sectionTitle = section.sectionTitle ? safeGetText(section.sectionTitle) : 'Section';
+                const sectionContent = section.script ? safeGetText(section.script) : safeGetText(section);
+                
+                frames.push({ 
+                  text: `<strong>${sectionTitle}</strong><br/><br/>${sectionContent}`, 
+                  duration: 8 
+                });
+                
+                if (section.interactiveElement) {
+                  frames.push({ 
+                    text: `<strong>Interactive Element:</strong><br/><br/>${safeGetText(section.interactiveElement)}`, 
+                    duration: 4 
+                  });
+                }
+              } else {
+                // Section is a scalar value
+                frames.push({ text: safeGetText(section), duration: 5 });
+              }
+            });
+          } else {
+            // MainContent is not an array
+            frames.push({ text: safeGetText(scriptContent.mainContent), duration: 8 });
+          }
+        }
+        
+        if (scriptContent.conclusion) {
+          frames.push({ text: safeGetText(scriptContent.conclusion), duration: 5 });
+        }
+      } else {
+        // Object without the expected structure, convert to string
+        frames.push({ text: JSON.stringify(scriptContent, null, 2), duration: 10 });
+      }
     } else {
       // For any other format, just use the entire script
       const scriptText = typeof scriptContent === 'string' 
@@ -196,12 +238,20 @@ export async function generateVideo(content) {
         : JSON.stringify(scriptContent, null, 2);
       
       // Split into paragraphs
-      const paragraphs = scriptText.split('\\n\\n');
+      const paragraphs = scriptText.split(/\n\n|\\\n\\\n/);
       for (const paragraph of paragraphs) {
         if (paragraph.trim()) {
           frames.push({ text: paragraph, duration: 5 });
         }
       }
+    }
+    
+    // Ensure we have at least one frame
+    if (frames.length === 0) {
+      frames.push({ 
+        text: `No script content available for: ${title}`, 
+        duration: 10 
+      });
     }
     
     console.log(`Generating ${frames.length} frames for video...`);

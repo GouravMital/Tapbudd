@@ -184,7 +184,9 @@ export default function ContentPreview({ content }) {
                 {content.scriptContent.opening && (
                   <div className="mb-4">
                     <h5 className="font-medium mb-1">Opening:</h5>
-                    <p className="whitespace-pre-line">{content.scriptContent.opening}</p>
+                    <p className="whitespace-pre-line">{typeof content.scriptContent.opening === 'string' 
+                ? content.scriptContent.opening 
+                : JSON.stringify(content.scriptContent.opening)}</p>
                   </div>
                 )}
                 
@@ -194,12 +196,24 @@ export default function ContentPreview({ content }) {
                     <h5 className="font-medium mb-1">Main Content:</h5>
                     {content.scriptContent.mainContent.map((section, index) => (
                       <div key={index} className="mb-3 pl-3 border-l-2 border-gray-200">
-                        <h6 className="font-medium text-gray-700">{section.sectionTitle}</h6>
-                        <p className="whitespace-pre-line mb-2">{section.script}</p>
+                        <h6 className="font-medium text-gray-700">{
+                          typeof section.sectionTitle === 'string' 
+                            ? section.sectionTitle 
+                            : JSON.stringify(section.sectionTitle)
+                        }</h6>
+                        <p className="whitespace-pre-line mb-2">{
+                          typeof section.script === 'string' 
+                            ? section.script 
+                            : JSON.stringify(section.script)
+                        }</p>
                         {section.interactiveElement && (
                           <div className="bg-blue-50 p-2 rounded border border-blue-100">
                             <span className="text-xs font-medium text-blue-800">Interactive Element: </span>
-                            <span className="text-xs text-blue-700">{section.interactiveElement}</span>
+                            <span className="text-xs text-blue-700">{
+                              typeof section.interactiveElement === 'string' 
+                                ? section.interactiveElement 
+                                : JSON.stringify(section.interactiveElement)
+                            }</span>
                           </div>
                         )}
                       </div>
@@ -216,7 +230,11 @@ export default function ContentPreview({ content }) {
                 {content.scriptContent.conclusion && (
                   <div>
                     <h5 className="font-medium mb-1">Conclusion:</h5>
-                    <p className="whitespace-pre-line">{content.scriptContent.conclusion}</p>
+                    <p className="whitespace-pre-line">{
+                      typeof content.scriptContent.conclusion === 'string' 
+                        ? content.scriptContent.conclusion 
+                        : JSON.stringify(content.scriptContent.conclusion)
+                    }</p>
                   </div>
                 )}
               </div>
@@ -252,7 +270,11 @@ export default function ContentPreview({ content }) {
                       <i className="ri-image-line text-2xl text-gray-400"></i>
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 p-1">
-                      <p className="text-xs text-white">{reference.title}</p>
+                      <p className="text-xs text-white">{
+                        typeof reference.title === 'string' 
+                          ? reference.title 
+                          : JSON.stringify(reference.title)
+                      }</p>
                     </div>
                   </div>
                 ))}

@@ -32,14 +32,14 @@ async function generateEducationalContent(contentParams) {
     // Construct the prompt
     const prompt = `
     You are an expert educational content creator for The Apprentice Project (TAP), an educational NGO that 
-    provides engaging educational content for children. Create a detailed script for a ${contentFormat} on ${title}.
+    provides engaging educational content for children. Create a detailed Video for a ${contentFormat} on ${title}.
     
     Content details:
     - Subject: ${subject}
     - Age Group: ${ageGroup}
     - Difficulty: ${difficultyLevel}
     - Duration: ${duration} minutes
-    ${specificInstructions ? `- Special Instructions: ${specificInstructions}` : ''}
+    ${specificInstructions ? `- Special Instructions: ${specificInstructions}` : ""}
     
     Return a JSON response with the following structure:
     {
@@ -76,14 +76,14 @@ async function generateEducationalContent(contentParams) {
 
     // Extract and parse JSON response
     let textResponse = response.text();
-    
+
     // Clean up response in case there are markdown code blocks
-    if (textResponse.includes('```json')) {
-      textResponse = textResponse.split('```json')[1].split('```')[0].trim();
-    } else if (textResponse.includes('```')) {
-      textResponse = textResponse.split('```')[1].split('```')[0].trim();
+    if (textResponse.includes("```json")) {
+      textResponse = textResponse.split("```json")[1].split("```")[0].trim();
+    } else if (textResponse.includes("```")) {
+      textResponse = textResponse.split("```")[1].split("```")[0].trim();
     }
-    
+
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(textResponse);
