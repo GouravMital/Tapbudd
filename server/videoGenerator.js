@@ -1,6 +1,7 @@
 /**
  * Video Generator Service for TAP Educational Content
  * Converts AI-generated educational content into MP4 video files using canvas
+ * Includes animations and sound for better educational experience
  */
 
 import fs from 'fs';
@@ -21,6 +22,10 @@ try {
 } catch (err) {
   console.log('Error loading fonts:', err.message);
 }
+
+// Animation settings
+const ANIMATION_FRAMES = 5; // Number of frames for each animation transition
+const USE_ANIMATIONS = true; // Enable or disable animations
 
 // Ensure directories exist
 const TEMP_DIR = path.join(__dirname, '..', 'temp');
@@ -277,6 +282,33 @@ async function createFrame(text, frameNum, title, subject, options = {}) {
   
   // Determine the frame type for specialized styling
   const frameType = options.type || 'standard';
+  
+  // Animation effects
+  const isAnimated = options.animate === true;
+  const animationPhase = options.animationPhase || 'main';
+  const transitionProgress = options.transitionProgress || 1.0; // 0.0 to 1.0
+  
+  // Create animation effects based on frame type and animation phase
+  const applyAnimationEffects = (ctx) => {
+    if (!isAnimated) return;
+    
+    // Apply different animation effects based on the phase
+    if (animationPhase === 'intro' || animationPhase === 'title-reveal') {
+      // Fade-in effect for text
+      ctx.globalAlpha = Math.min(1.0, transitionProgress * 1.5);
+    } else if (animationPhase === 'transition-in') {
+      // Slide-in effect - apply translation transform
+      const slideOffset = WIDTH * (1.0 - transitionProgress);
+      ctx.translate(slideOffset, 0);
+    } else if (options.isTransition) {
+      // Cross-fade effect between frames
+      ctx.globalAlpha = transitionProgress;
+    }
+  };
+  
+  // Apply animation effects to the canvas context
+  ctx.save();
+  applyAnimationEffects(ctx);
   
   // Draw themed background with variations based on frame type
   if (frameType === 'opening') {
@@ -587,6 +619,9 @@ async function createFrame(text, frameNum, title, subject, options = {}) {
   ctx.textAlign = 'right';
   ctx.fillText('The Apprentice Project • Educational Content', WIDTH - 40, HEIGHT - 40);
   
+  // Restore context after animation effects
+  ctx.restore();
+  
   // Save image
   const buffer = canvas.toBuffer('image/png');
   fs.writeFileSync(imagePath, buffer);
@@ -607,8 +642,24 @@ export async function generateVideo(content) {
       title, 
       subject, 
       scriptContent, 
-      id 
+      id,
+      ageGroup = '6-12' // Default age group if not specified
     } = content;
+    
+    // Determine which audio file to use based on subject
+    const subjectKey = subject.toLowerCase().replace(/\s+/g, '-');
+    let audioFile = path.join(__dirname, '..', 'public', 'audio', 'education_background.mp3');
+    
+    // Select specific audio file based on subject
+    if (subjectKey.includes('science')) {
+      audioFile = path.join(__dirname, '..', 'public', 'audio', 'science_background.mp3');
+    } else if (subjectKey.includes('art')) {
+      audioFile = path.join(__dirname, '..', 'public', 'audio', 'arts_background.mp3');
+    } else if (subjectKey.includes('coding') || subjectKey.includes('computer')) {
+      audioFile = path.join(__dirname, '..', 'public', 'audio', 'coding_background.mp3');
+    } else if (subjectKey.includes('finance') || subjectKey.includes('financial')) {
+      audioFile = path.join(__dirname, '..', 'public', 'audio', 'finance_background.mp3');
+    }
     
     // Determine output file path
     const timestamp = Date.now();
@@ -745,14 +796,44 @@ export async function generateVideo(content) {
     const totalFrames = frames.length;
     console.log(`Preparing to generate ${totalFrames} frames for video...`);
     
-    // Generate all frames
+    // Generate all frames with transitions
     let frameFiles = [];
     for (let i = 0; i < frames.length; i++) {
       const frame = frames[i];
       console.log(`Creating frame ${i + 1} of ${frames.length}: ${frame.type || 'standard'}`);
       
-      // Pass frame type and index information to createFrame
-      const framePath = await createFrame(
+      // Special handling for the first frame (opening)
+      if (i === 0 && frame.animate) {
+        // Create a title reveal effect with multiple frames
+        const revealSteps = 6; // Number of steps in the reveal animation
+        for (let step = 0; step < revealSteps; step++) {
+          const progress = (step + 1) / revealSteps;
+          const titleRevealPath = await createFrame(
+            frame.text,
+            i,
+            title,
+            subject,
+            {
+              type: frame.type || 'standard',
+              animate: true,
+              animationPhase: 'title-reveal',
+              transitionProgress: progress,
+              totalFrames: totalFrames,
+              frameData: frame
+            }
+          );
+          
+          // Add title reveal frame with very short duration
+          frameFiles.push({
+            path: titleRevealPath,
+            duration: 0.3, // Brief frames for smooth animation
+            isTransition: true
+          });
+        }
+      }
+      
+      // Main frame with regular animation
+      const mainFramePath = await createFrame(
         frame.text, 
         i, 
         title, 
@@ -760,12 +841,44 @@ export async function generateVideo(content) {
         {
           type: frame.type || 'standard',
           animate: frame.animate || false,
+          animationPhase: 'main',
           totalFrames: totalFrames,
           frameData: frame // Pass all frame data for additional customization
         }
       );
       
-      frameFiles.push({ path: framePath, duration: frame.duration });
+      // For smooth transitions between frames, generate transition frames
+      if (frame.animate && i > 0) {
+        // Create 3 transition frames - fade in/slide in effect
+        const transitionFramesCount = 3;
+        for (let t = 0; t < transitionFramesCount; t++) {
+          const progress = (t + 1) / (transitionFramesCount + 1);
+          const transitionFramePath = await createFrame(
+            frame.text,
+            i,
+            title,
+            subject,
+            {
+              type: frame.type || 'standard',
+              animate: true,
+              animationPhase: 'transition-in',
+              transitionProgress: progress,
+              totalFrames: totalFrames,
+              frameData: frame
+            }
+          );
+          
+          // Add transition frame with short duration
+          frameFiles.push({ 
+            path: transitionFramePath, 
+            duration: 0.5, 
+            isTransition: true 
+          });
+        }
+      }
+      
+      // Add the main frame with the specified duration
+      frameFiles.push({ path: mainFramePath, duration: frame.duration });
     }
     
     // Create video using ffmpeg
@@ -779,9 +892,21 @@ export async function generateVideo(content) {
         
         // Create content for concat file
         frameFiles.forEach(frame => {
-          // For each frame, we need to specify the duration it should be shown
-          for (let i = 0; i < frame.duration; i++) {
-            concatContent += `file '${frame.path}'\nduration 1\n`;
+          // For transition frames or frames with fractional duration
+          if (frame.isTransition || frame.duration < 1) {
+            concatContent += `file '${frame.path}'\nduration ${frame.duration.toFixed(1)}\n`;
+          } else {
+            // For regular frames with integer durations, split into 1-second chunks
+            // for better animation control
+            for (let i = 0; i < Math.floor(frame.duration); i++) {
+              concatContent += `file '${frame.path}'\nduration 1\n`;
+            }
+            
+            // Add any fractional part remaining
+            const fractionalPart = frame.duration % 1;
+            if (fractionalPart > 0) {
+              concatContent += `file '${frame.path}'\nduration ${fractionalPart.toFixed(1)}\n`;
+            }
           }
         });
         
@@ -793,22 +918,50 @@ export async function generateVideo(content) {
         // Write the concat file
         fs.writeFileSync(concatFilePath, concatContent);
         
-        console.log('Starting FFmpeg process');
+        console.log('Starting FFmpeg process with audio');
+        
+        // Check if audio file exists
+        const audioFileExists = fs.existsSync(audioFile);
+        console.log(`Audio file status: ${audioFileExists ? 'Found' : 'Not found'} - ${audioFile}`);
         
         // Create the video with ffmpeg
-        ffmpeg()
+        let ffmpegCommand = ffmpeg()
           .input(concatFilePath)
           .inputFormat('concat')
           .inputOptions(['-safe 0'])
-          .videoCodec('libx264')
-          .outputOptions([
-            '-pix_fmt yuv420p', // Required for compatibility
-            '-preset medium', // Balance between quality and encoding speed
-            '-crf 22', // Constant Rate Factor - lower is better quality (18-28 is good range)
-            '-movflags +faststart', // Allows video to start playing before fully downloaded
-            '-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:-1:-1:color=black' // Ensure consistent dimensions
-          ])
-          // Adding metadata as a separate option
+          .videoCodec('libx264');
+          
+        // Add background music if audio file exists
+        if (audioFileExists) {
+          ffmpegCommand = ffmpegCommand
+            .input(audioFile)
+            .audioCodec('aac')
+            .audioBitrate('128k')
+            .audioChannels(2)
+            .audioFrequency(44100)
+            .outputOptions([
+              '-pix_fmt yuv420p', // Required for compatibility
+              '-preset medium', // Balance between quality and encoding speed
+              '-crf 22', // Constant Rate Factor - lower is better quality (18-28 is good range)
+              '-movflags +faststart', // Allows video to start playing before fully downloaded
+              '-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:-1:-1:color=black', // Ensure consistent dimensions
+              '-shortest', // End the output when the shortest input stream ends
+              '-af "volume=0.5"' // Reduce the volume of the background music
+            ]);
+        } else {
+          // No audio file, just output video
+          ffmpegCommand = ffmpegCommand
+            .outputOptions([
+              '-pix_fmt yuv420p', // Required for compatibility
+              '-preset medium', // Balance between quality and encoding speed
+              '-crf 22', // Constant Rate Factor - lower is better quality (18-28 is good range)
+              '-movflags +faststart', // Allows video to start playing before fully downloaded
+              '-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:-1:-1:color=black' // Ensure consistent dimensions
+            ]);
+        }
+        
+        // Adding metadata as a separate option
+        ffmpegCommand = ffmpegCommand
           .addOutputOption('-metadata:s:v', 'title=TAP Educational Content')
           .output(outputPath)
           .on('progress', (progress) => {
